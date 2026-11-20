@@ -1,0 +1,12 @@
+Meine Finanzen – PWA
+
+1. Den gesamten Ordner auf einen Webspace mit HTTPS hochladen, z. B.:
+   - Netlify Drop (app.netlify.com/drop): Ordner per Drag & Drop hineinziehen
+   - GitHub Pages, Cloudflare Pages oder eigener Webspace
+2. Die Adresse auf dem Handy öffnen.
+   - iPhone (Safari): Teilen-Symbol -> "Zum Home-Bildschirm"
+   - Android (Chrome): Menü -> "App installieren"
+3. Die App startet dann im Vollbild mit eigenem Icon und funktioniert auch offline.
+
+Hinweis: Die Daten werden nur auf dem jeweiligen Gerät gespeichert (im Browser-Speicher).
+Für ein Backup: Einstellungen -> Export & Daten -> "CSV kopieren".
