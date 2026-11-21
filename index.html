@@ -680,6 +680,7 @@ header.top[hidden],#status[hidden]{display:none!important}
 .sw i::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
 .sw input:checked + i{background:var(--good)}
 .sw input:checked + i::after{transform:translateX(18px)}
+.actbtn small{font-size:12px;font-weight:500;color:var(--text-2)}
 .app{padding-top:calc(14px + env(safe-area-inset-top));padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right));padding-bottom:calc(60px + env(safe-area-inset-bottom))}
 </style>
 </head>
@@ -695,11 +696,11 @@ header.top[hidden],#status[hidden]{display:none!important}
   <div class="statusline" id="status"></div>
   <main id="view"></main>
 </div>
-<input type="file" id="upFile" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+<input type="file" id="upFile" accept=".csv,.txt,.xlsx,.xls,.json,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION='1.0.0', APP_BUILD='62-pwa';
+const APP_VERSION='1.0.0', APP_BUILD='63-pwa';
 /* ---------- Helpers ---------- */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1127,7 +1128,7 @@ function viewEmpty(){
     <div class="emptycta">
       <span class="big">${svg('upload',24,1.8)}</span>
       <b>Noch keine Buchungen${name}</b>
-      <span>Importiere einen Kontoauszug als CSV oder Excel – dein Dashboard füllt sich automatisch.</span>
+      <span>Importiere einen Kontoauszug als CSV, Excel oder JSON – dein Dashboard füllt sich automatisch.</span>
       <label class="ctabtn" for="upFile">${svg('upload',18,2)}Kontoauszug importieren</label>
     </div>
   </div>`;
@@ -1619,7 +1620,7 @@ function viewBudgets(){
 
 function viewMore(){
   const st=S.settings;
-  let h=`<button type="button" class="setimport" onclick="document.getElementById('upFile').click();closeSettings()"><span class="big">${svg('upload',17,1.8)}</span><span><b>Kontoauszug importieren</b><span class="note">CSV oder Excel</span></span>${svg('chevR',16)}</button>`;
+  let h=`<button type="button" class="setimport" onclick="document.getElementById('upFile').click();closeSettings()"><span class="big">${svg('upload',17,1.8)}</span><span><b>Kontoauszug importieren</b><span class="note">CSV, Excel oder JSON</span></span>${svg('chevR',16)}</button>`;
   { const ct=allThemes().find(x=>x.id===theme)||PRESETS[0];
     h+=`<button type="button" class="setimport" data-act="open-themes"><span class="big">${svg('drop',17,1.8)}</span><span><b>Theme</b><span class="note">${esc(ct.name)}</span></span>${svg('chevR',16)}</button>`; }
   h+=`<button type="button" class="setimport" data-act="widgets"><span class="big">${svg('grid',17,1.8)}</span><span><b>Widgets</b><span class="note">Anzeigen, ausblenden, anordnen</span></span>${svg('chevR',16)}</button>`;
@@ -1641,7 +1642,7 @@ function viewMore(){
     <div class="inline"><button class="btn" data-act="parse-csv">Vorschau</button></div></div></details>`;
 
   h+=`<details class="card" data-k="export" ${S.open.has('export')?'open':''}><summary>Export & Daten</summary><div class="body"><div class="note" style="margin:0 0 10px">${S.acc==='all'?'Alle':esc(accName(S.acc))+':'} ${curTx().length} Buchungen als CSV (für Excel) – kopieren und in eine Datei einfügen.</div>
-    <div class="inline" style="margin-top:0"><button class="btn" data-act="export">CSV kopieren</button><button class="btn danger" data-act="wipe">Alle Buchungen löschen</button></div></div></details>`;
+    <div class="inline" style="margin-top:0"><button class="btn" data-act="backup">Backup (JSON)</button><button class="btn" data-act="export">CSV exportieren</button><button class="btn danger" data-act="wipe">Alle Buchungen löschen</button></div></div></details>`;
   h+=`<details class="card" data-k="imprint" ${S.open.has('imprint')?'open':''}><summary>Impressum</summary><div class="body legal">
     <p><b>Angaben gemäß § 5 DDG</b></p>
     <p>[Vor- und Nachname]<br>[Straße und Hausnummer]<br>[PLZ Ort]<br>Deutschland</p>
@@ -1676,13 +1677,13 @@ function splitCSV(text){
 function parseImport(text,name){
   const rows=splitCSV(text); if(rows.length<2) return toast('Keine Daten erkannt.');
   // header row = first row with ≥3 cells containing a date-ish or amount-ish label
-  let hi=rows.findIndex(r=>r.length>=3 && r.some(c=>/datum|date|buchung/i.test(c)) && r.some(c=>/betrag|amount|umsatz|soll|haben/i.test(c)));
+  let hi=rows.findIndex(r=>r.length>=2 && r.some(c=>/datum|date|buchung/i.test(c)) && r.some(c=>/betrag|amount|umsatz|soll|haben|value|wert|summe/i.test(c)));
   if(hi<0) hi=0;
   const head=rows[hi].map(h=>h.toLowerCase());
   const find=(...res)=>{ for(const re of res){ const i=head.findIndex(h=>re.test(h)); if(i>=0) return i; } return -1; };
   const map={
     date: find(/^buchungstag/,/buchungsdatum/,/^datum/,/date/,/valuta|wertstellung/),
-    amount: find(/^betrag/,/betrag/,/amount/,/umsatz/),
+    amount: find(/^betrag/,/betrag/,/amount/,/umsatz/,/value|wert|summe|sum/),
     text: find(/verwendungszweck/,/beschreibung/,/description/,/buchungstext/),
     party: find(/empf|auftraggeber|beg[üu]nstigt|zahlungspflichtig|payee|name|gegen/),
   };
@@ -1730,10 +1731,61 @@ function chooseAccount(){
     o.querySelector('#paNo').onclick=()=>{ closeModal(); res(null); };
   }));
 }
+function jsonToCSV(arr){
+  const flat=o=>{ const r={}; for(const [k,v] of Object.entries(o||{})){ if(v&&typeof v==='object'&&!Array.isArray(v)){ for(const [k2,v2] of Object.entries(v)) if(typeof v2!=='object') r[(k+'.'+k2).toLowerCase()]=v2; } else if(!Array.isArray(v)) r[k.toLowerCase()]=v; } return r; };
+  const pick=(r,res)=>{ for(const re of res){ const k=Object.keys(r).find(k=>re.test(k)); if(k!==undefined && r[k]!=='' && r[k]!=null) return r[k]; } return ''; };
+  const D=[/^datum$/,/^date$/,/buchungstag|bookingdate|booking_date|buchungsdatum/,/datum|date|valuta|time/];
+  const A=[/^betrag$/,/^amount$/,/betrag|amount|umsatz|value|wert|summe|sum/];
+  const P=[/empf|payee|counterparty|merchant|auftraggeber|beg[uü]nstigt|^name$|partner/];
+  const T=[/verwendungszweck|description|purpose|reference|memo|beschreibung|text|zweck|note/];
+  const Y=[/^typ$|^type$|^art$|direction|richtung/];
+  const cell=v=>{ v=v==null?'':String(v); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const lines=['Datum;Empfänger;Verwendungszweck;Betrag'];
+  for(const o of arr){ if(!o||typeof o!=='object') continue; const r=flat(o);
+    let a=pick(r,A); const ty=String(pick(r,Y)).toLowerCase();
+    if(typeof a==='number' && a>0 && /expense|ausgabe|debit|out|soll|lastschrift/.test(ty)) a=-a;
+    else if(typeof a==='string' && /expense|ausgabe|debit|out|soll/.test(ty) && !a.trim().startsWith('-')) a='-'+a.trim();
+    if(typeof a==='number') a=String(a).replace('.',',');
+    lines.push([pick(r,D),pick(r,P),pick(r,T),a].map(cell).join(';')); }
+  return lines.join('\n');
+}
+async function saveFile(fname,data){
+  if(window.claude && typeof window.claude.use==='function'){
+    let dl=null; try{ dl=await window.claude.use('downloads'); }catch(e){}
+    if(dl){ try{ await dl.save({filename:fname,data}); toast('Gespeichert: '+fname); return true; }catch(e){ if(e&&e.code==='declined') return true; } }
+    return false;
+  }
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:fname.endsWith('.json')?'application/json':'text/csv'})); a.download=fname; document.body.appendChild(a); a.click(); a.remove(); toast('Gespeichert: '+fname); return true; }catch(e){ return false; }
+}
+async function restoreBackup(data){
+  const tx=Array.isArray(data.tx)?data.tx:[];
+  const mode=await new Promise(res=>openModal(`<div class="cfm"><h3>Backup einspielen</h3><p>${tx.length} Buchungen${data.settings?', Konten, Kategorien und Einstellungen':''} gefunden.</p></div>
+    <div class="actlist" style="margin-top:14px"><button class="actbtn" id="bkMerge">${svg('plus_c',19,1.9)}<span>Hinzufügen<br><small>Fehlende Buchungen ergänzen</small></span></button><button class="actbtn danger" id="bkRepl">${svg('undo',19,1.9)}<span>Ersetzen<br><small>Alle aktuellen Daten überschreiben</small></span></button></div>
+    <button class="btn actcancel" id="bkNo">Abbrechen</button>`,o=>{ o.querySelector('#bkMerge').onclick=()=>{closeModal();res('merge');}; o.querySelector('#bkRepl').onclick=()=>{closeModal();res('replace');}; o.querySelector('#bkNo').onclick=()=>{closeModal();res(null);}; }));
+  if(!mode) return;
+  if(mode==='replace'){ if(!(await confirmBox('Alle Daten ersetzen?','Ersetzen','Deine aktuellen Buchungen und Einstellungen werden durch das Backup ersetzt.'))) return;
+    for(const t of S.tx.slice()) delTx(t.id); }
+  if(data.settings && (mode==='replace' || !S.settings.accounts)) { S.settings={...structuredClone(DEFAULT_SETTINGS),...data.settings}; }
+  else if(data.settings){ const have=new Set(accounts().map(a=>a.id)); const add=(data.settings.accounts||[]).filter(a=>!have.has(a.id)); if(add.length) S.settings.accounts=[...accounts(),...add];
+    const hc=new Set(S.settings.categories.map(c=>c.id)); const addc=(data.settings.categories||[]).filter(c=>!hc.has(c.id)); if(addc.length) S.settings.categories=[...S.settings.categories,...addc]; }
+  saveSettings();
+  const ids=new Set(S.tx.map(t=>t.id)), sig=new Set(S.tx.map(t=>[accOf(t),t.date,t.amount,t.type,t.note].join('|')));
+  let n=0; for(const t of tx){ if(!t||!t.date||!isFinite(+t.amount)) continue; const k=[t.acc||accounts()[0].id,t.date,+t.amount,t.type,t.note||''].join('|');
+    if(mode==='merge' && (ids.has(t.id)||sig.has(k))) continue; putTx({...t, id:(t.id&&!ids.has(t.id))?t.id:newId(), amount:+t.amount}); n++; }
+  XFdirty=true; render(); toast(`Backup eingespielt · ${n} Buchungen`);
+}
 async function handleFile(f){
   if(!f) return;
-  const acc=await chooseAccount(); if(!acc) return; S.importAcc=acc;
   const name=f.name||'Datei';
+  if(/\.json$/i.test(name) || f.type==='application/json'){
+    let data; try{ data=JSON.parse(await f.text()); }catch(e){ return toast('JSON-Datei ist ungültig.'); }
+    if(data && !Array.isArray(data) && (data.app==='meine-finanzen' || (Array.isArray(data.tx)&&data.settings))) return restoreBackup(data);
+    const arr = Array.isArray(data) ? data : (Array.isArray(data.transactions)?data.transactions : Array.isArray(data.buchungen)?data.buchungen : Array.isArray(data.data)?data.data : Array.isArray(data.items)?data.items : null);
+    if(!arr || !arr.length) return toast('Keine Buchungen in der JSON-Datei gefunden.');
+    const acc=await chooseAccount(); if(!acc) return; S.importAcc=acc;
+    return parseImport(jsonToCSV(arr), name);
+  }
+  const acc=await chooseAccount(); if(!acc) return; S.importAcc=acc;
   try{
     if(/\.(xlsx|xls)$/i.test(name)){
       toast('Excel-Datei wird gelesen …');
@@ -2003,6 +2055,12 @@ document.addEventListener('click', async e=>{
   if(el.dataset.xdel){ st.rules=st.rules.filter(r=>r.id!==el.dataset.xdel); saveSettings(); return; }
   const act=el.dataset.act;
   if(act==='arange-clear'){ S.arange='all'; S.afrom=''; S.ato=''; $('#actRange').innerHTML=actRangeHTML(); refreshActivity(); return; }
+  if(act==='backup'){ const data={app:'meine-finanzen',version:APP_VERSION,build:APP_BUILD,exported:new Date().toISOString(),settings:S.settings,tx:S.tx};
+    const json=JSON.stringify(data,null,1), fname=`meine-finanzen-backup-${todayISO()}.json`;
+    if(await saveFile(fname,json)) return;
+    try{ await navigator.clipboard.writeText(json); toast('Backup kopiert – als .json-Datei speichern'); }
+    catch(e){ openModal(`<h3>Backup (JSON)</h3><textarea rows="10" readonly>${esc(json)}</textarea><div class="note">Text kopieren und als Datei „${esc(fname)}“ speichern.</div><div class="actions"><div class="r"><button class="btn" onclick="this.closest('.overlay').remove()">Schließen</button></div></div>`,o=>{const ta=o.querySelector('textarea'); ta.focus(); ta.select();}); }
+    return; }
   if(act==='open-themes'){ openThemes(); return; }
   if(act==='widgets'){ openWidgets(); return; }
   if(act==='set-back'){ closeSettings(); return; }
@@ -2025,6 +2083,7 @@ document.addEventListener('click', async e=>{
   if(act==='do-import') doImport();
   if(act==='export'){ const rows=[['Datum','Konto','Art','Betrag','Kategorie','Notiz']].concat(curTx().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(t=>[t.date,accName(accOf(t)),t.type==='income'?'Einnahme':'Ausgabe',(t.type==='income'?t.amount:-t.amount).toFixed(2).replace('.',','),cat(t.cat).name,t.note||'']));
     const csv=rows.map(r=>r.map(c=>/[;"\n]/.test(c)?'"'+String(c).replace(/"/g,'""')+'"':c).join(';')).join('\n');
+    if(await saveFile(`meine-finanzen-${todayISO()}.csv`,'\uFEFF'+csv)) return;
     try{ await navigator.clipboard.writeText(csv); toast('CSV kopiert – in Excel/Datei einfügen'); }
     catch(err){ openModal(`<h3>CSV-Export</h3><textarea rows="12" readonly>${esc(csv)}</textarea><div class="actions"><div class="r"><button class="btn" onclick="this.closest('.overlay').remove()">Schließen</button></div></div>`,o=>{const ta=o.querySelector('textarea'); ta.focus(); ta.select();}); } }
   if(act==='wipe'){ const L=curTx(); if(await confirmBox(`Wirklich ${L.length} Buchungen${S.acc==='all'?' aus allen Konten':' aus „'+accName(S.acc)+'“'} löschen?`,'Löschen')){ const ids=L.map(t=>t.id); for(const id of ids) delTx(id); render(); toast('Alle Buchungen gelöscht'); } }
